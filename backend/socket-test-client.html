@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuickCommerce Socket.io Test Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 28px;
+      }
+
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+
+      .connection-panel {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+
+      .input-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        color: #555;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.3s;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+
+      button:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .status {
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        font-weight: 600;
+      }
+
+      .status.connected {
+        background: #d4edda;
+        color: #155724;
+        border: 2px solid #c3e6cb;
+      }
+
+      .status.disconnected {
+        background: #f8d7da;
+        color: #721c24;
+        border: 2px solid #f5c6cb;
+      }
+
+      .events-panel {
+        background: #1e1e1e;
+        color: #f0f0f0;
+        padding: 20px;
+        border-radius: 8px;
+        max-height: 500px;
+        overflow-y: auto;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .event {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #333;
+      }
+
+      .event:last-child {
+        border-bottom: none;
+      }
+
+      .event-time {
+        color: #888;
+        font-size: 11px;
+      }
+
+      .event-name {
+        color: #4ec9b0;
+        font-weight: bold;
+        margin: 5px 0;
+      }
+
+      .event-data {
+        color: #ce9178;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin: 20px 0 10px 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #667eea;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 10px;
+      }
+
+      .badge.success {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .badge.danger {
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚀 QuickCommerce Socket.io Test Client</h1>
+      <p class="subtitle">Real-time WebSocket Testing Tool</p>
+
+      <div class="connection-panel">
+        <div class="input-group">
+          <label for="serverUrl">Server URL</label>
+          <input
+            type="text"
+            id="serverUrl"
+            value="http://localhost:5000"
+            placeholder="http://localhost:5000"
+          />
+        </div>
+
+        <div class="input-group">
+          <label for="token">JWT Token (Get from login API)</label>
+          <textarea
+            id="token"
+            rows="3"
+            placeholder="Paste your JWT token here..."
+          ></textarea>
+        </div>
+
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>
+          Disconnect
+        </button>
+        <button onclick="clearEvents()">Clear Events</button>
+      </div>
+
+      <div id="status" class="status disconnected">❌ Disconnected</div>
+
+      <div class="section-title">Test Actions</div>
+      <div class="actions">
+        <button onclick="sendPing()" id="pingBtn" disabled>Send Ping</button>
+        <button onclick="sendHeartbeat()" id="heartbeatBtn" disabled>
+          Send Heartbeat
+        </button>
+        <button onclick="joinOrder()" id="joinOrderBtn" disabled>
+          Join Order Room
+        </button>
+        <button onclick="leaveOrder()" id="leaveOrderBtn" disabled>
+          Leave Order Room
+        </button>
+        <button onclick="updateLocation()" id="locationBtn" disabled>
+          Update Location
+        </button>
+        <button onclick="sendMessage()" id="messageBtn" disabled>
+          Send Message
+        </button>
+        <button onclick="getOnlineUsers()" id="onlineUsersBtn" disabled>
+          Get Online Users
+        </button>
+        <button onclick="getRoomMembers()" id="roomMembersBtn" disabled>
+          Get Room Members
+        </button>
+      </div>
+
+      <div class="section-title">
+        Real-time Events
+        <span class="badge success" id="eventCount">0 events</span>
+      </div>
+      <div class="events-panel" id="events">
+        <div style="color: #888">Waiting for connection...</div>
+      </div>
+    </div>
+
+    <script>
+      let socket = null;
+      let eventCount = 0;
+
+      function connect() {
+        const serverUrl = document.getElementById("serverUrl").value;
+        const token = document.getElementById("token").value.trim();
+
+        if (!token) {
+          alert("Please enter your JWT token");
+          return;
+        }
+
+        addEvent("system", "Connecting to server...", { url: serverUrl });
+
+        socket = io(serverUrl, {
+          auth: { token },
+          transports: ["websocket", "polling"],
+        });
+
+        // Connection events
+        socket.on("connect", () => {
+          updateStatus(true, `Connected - Socket ID: ${socket.id}`);
+          enableButtons(true);
+          addEvent("connect", "Successfully connected to server", {
+            socketId: socket.id,
+          });
+        });
+
+        socket.on("connected", (data) => {
+          addEvent("connected", "Server welcome message", data);
+        });
+
+        socket.on("disconnect", (reason) => {
+          updateStatus(false, `Disconnected - ${reason}`);
+          enableButtons(false);
+          addEvent("disconnect", "Disconnected from server", { reason });
+        });
+
+        socket.on("connect_error", (error) => {
+          updateStatus(false, `Connection Error: ${error.message}`);
+          addEvent("error", "Connection error", { error: error.message });
+        });
+
+        // Order events
+        socket.on("order:created", (data) => {
+          addEvent("order:created", "New order created", data);
+        });
+
+        socket.on("order:accepted", (data) => {
+          addEvent("order:accepted", "Order accepted", data);
+        });
+
+        socket.on("order:status-updated", (data) => {
+          addEvent("order:status-updated", "Order status updated", data);
+        });
+
+        socket.on("order:cancelled", (data) => {
+          addEvent("order:cancelled", "Order cancelled", data);
+        });
+
+        socket.on("order:joined", (data) => {
+          addEvent("order:joined", "Joined order room", data);
+        });
+
+        socket.on("order:left", (data) => {
+          addEvent("order:left", "Left order room", data);
+        });
+
+        // Delivery events
+        socket.on("delivery:location", (data) => {
+          addEvent("delivery:location", "Delivery location update", data);
+        });
+
+        socket.on("delivery:location-updated", (data) => {
+          addEvent(
+            "delivery:location-updated",
+            "Location updated successfully",
+            data,
+          );
+        });
+
+        // User events
+        socket.on("user:online", (data) => {
+          addEvent("user:online", "User came online", data);
+        });
+
+        socket.on("user:offline", (data) => {
+          addEvent("user:offline", "User went offline", data);
+        });
+
+        socket.on("users:online-list", (data) => {
+          addEvent("users:online-list", "Online users list", data);
+        });
+
+        // Room events
+        socket.on("room:members", (data) => {
+          addEvent("room:members", "Room members list", data);
+        });
+
+        // Ping/Pong
+        socket.on("pong", (data) => {
+          const latency = Date.now() - data.latency;
+          addEvent("pong", `Pong received - Latency: ${latency}ms`, data);
+        });
+
+        socket.on("heartbeat:ack", (data) => {
+          addEvent("heartbeat:ack", "Heartbeat acknowledged", data);
+        });
+
+        // Messages
+        socket.on("message:received", (data) => {
+          addEvent("message:received", "Message received", data);
+        });
+
+        socket.on("message:sent", (data) => {
+          addEvent("message:sent", "Message sent successfully", data);
+        });
+
+        // Generic error
+        socket.on("error", (data) => {
+          addEvent("error", "Error occurred", data);
+        });
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+      }
+
+      function sendPing() {
+        if (!socket) return;
+        socket.emit("ping");
+        addEvent("ping", "Ping sent", { latency: Date.now() });
+      }
+
+      function sendHeartbeat() {
+        if (!socket) return;
+        socket.emit("heartbeat");
+        addEvent("heartbeat", "Heartbeat sent", {});
+      }
+
+      function joinOrder() {
+        if (!socket) return;
+        const orderId = prompt("Enter Order ID:");
+        if (orderId) {
+          socket.emit("order:join", { orderId });
+          addEvent("order:join", "Joining order room", { orderId });
+        }
+      }
+
+      function leaveOrder() {
+        if (!socket) return;
+        const orderId = prompt("Enter Order ID:");
+        if (orderId) {
+          socket.emit("order:leave", { orderId });
+          addEvent("order:leave", "Leaving order room", { orderId });
+        }
+      }
+
+      function updateLocation() {
+        if (!socket) return;
+        const lat = parseFloat(prompt("Enter Latitude:", "19.0760"));
+        const lng = parseFloat(prompt("Enter Longitude:", "72.8777"));
+        const orderId = prompt("Enter Order ID (optional):");
+
+        const data = { lat, lng };
+        if (orderId) data.orderId = orderId;
+
+        socket.emit("delivery:location-update", data);
+        addEvent("delivery:location-update", "Updating location", data);
+      }
+
+      function sendMessage() {
+        if (!socket) return;
+        const orderId = prompt("Enter Order ID:");
+        const message = prompt("Enter Message:");
+
+        if (orderId && message) {
+          socket.emit("message:send", { orderId, message });
+          addEvent("message:send", "Sending message", { orderId, message });
+        }
+      }
+
+      function getOnlineUsers() {
+        if (!socket) return;
+        socket.emit("users:get-online");
+        addEvent("users:get-online", "Requesting online users", {});
+      }
+
+      function getRoomMembers() {
+        if (!socket) return;
+        const roomName = prompt("Enter Room Name (e.g., order:12345):");
+        if (roomName) {
+          socket.emit("room:get-members", { roomName });
+          addEvent("room:get-members", "Requesting room members", { roomName });
+        }
+      }
+
+      function updateStatus(connected, message) {
+        const statusEl = document.getElementById("status");
+        statusEl.className = `status ${connected ? "connected" : "disconnected"}`;
+        statusEl.innerHTML = `${connected ? "✅" : "❌"} ${message}`;
+      }
+
+      function enableButtons(enabled) {
+        const buttons = [
+          "pingBtn",
+          "heartbeatBtn",
+          "joinOrderBtn",
+          "leaveOrderBtn",
+          "locationBtn",
+          "messageBtn",
+          "onlineUsersBtn",
+          "roomMembersBtn",
+        ];
+
+        buttons.forEach((id) => {
+          document.getElementById(id).disabled = !enabled;
+        });
+
+        document.getElementById("connectBtn").disabled = enabled;
+        document.getElementById("disconnectBtn").disabled = !enabled;
+      }
+
+      function addEvent(name, description, data) {
+        eventCount++;
+        document.getElementById("eventCount").textContent =
+          `${eventCount} events`;
+
+        const eventsEl = document.getElementById("events");
+        const eventDiv = document.createElement("div");
+        eventDiv.className = "event";
+
+        const time = new Date().toLocaleTimeString();
+        const dataStr = JSON.stringify(data, null, 2);
+
+        eventDiv.innerHTML = `
+                <div class="event-time">${time}</div>
+                <div class="event-name">${name}</div>
+                <div style="color: #dcdcaa; margin: 5px 0;">${description}</div>
+                <div class="event-data">${dataStr}</div>
+            `;
+
+        if (eventsEl.firstChild.textContent === "Waiting for connection...") {
+          eventsEl.innerHTML = "";
+        }
+
+        eventsEl.insertBefore(eventDiv, eventsEl.firstChild);
+      }
+
+      function clearEvents() {
+        eventCount = 0;
+        document.getElementById("eventCount").textContent = "0 events";
+        document.getElementById("events").innerHTML =
+          '<div style="color: #888;">Events cleared</div>';
+      }
+    </script>
+  </body>
+</html>
