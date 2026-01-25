@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import { verifyToken } from "../utils/jwt.js";
-import User from "../models/User.js";
+import { User } from "../models/User.js";
 
 let io;
 

@@ -16,7 +16,7 @@ import adminroutes from "./routes/admin.routes.js";
 dotenv.config();
 
 // init express app
-export const app = express();
+const app = express();
 
 connectDB();
 
