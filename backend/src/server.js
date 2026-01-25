@@ -5,6 +5,7 @@ import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
 import deliveryRoutes from "./routes/delivery.routes.js";
+import adminroutes from "./routes/admin.routes.js";
 
 // Load env variables
 dotenv.config();
@@ -46,6 +47,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/delivery", deliveryRoutes);
+app.use("/api/admin", adminroutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
