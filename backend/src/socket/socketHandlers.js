@@ -257,6 +257,12 @@ export const registerSocketHandlers = (io, socket) => {
         return;
       }
 
+      // Validate coordinates
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        socket.emit("error", { message: "Invalid coordinates" });
+        return;
+      }
+
       //   update location in database
       const deliveryPartner = await DeliveryPartner.findOne({ user: userId });
 
@@ -269,6 +275,21 @@ export const registerSocketHandlers = (io, socket) => {
 
       //   If orderId is provided, emit to that order's room
       if (orderId) {
+        // verify partner is assigned to this order
+        const order = await Order.findById(orderId);
+
+        if (!order) {
+          socket.emit("error", { message: "Order not found" });
+          return;
+        }
+
+        if (order.deliveryPartner?.toString() !== userId) {
+          socket.emit("error", {
+            message: "You are not assigned to this order",
+          });
+          return;
+        }
+
         const locationData = {
           partnerId: userId,
           partnerName: user.name,
@@ -279,6 +300,15 @@ export const registerSocketHandlers = (io, socket) => {
 
         // Emit to order room (customer will recieve this)
         emitToRoom(`order:${orderId}`, "delivery:location", locationData);
+
+        // Emit to customer directly
+        if (order.customer) {
+          emitToUser(
+            order.customer.toString(),
+            "delivery:location",
+            locationData,
+          );
+        }
 
         // Emit to admins
         emitToRole("admin", "delivery:location", locationData);
@@ -297,6 +327,249 @@ export const registerSocketHandlers = (io, socket) => {
       console.error(`Location update error:`, error);
       socket.emit("error", {
         message: "Failed to update location",
+        error: error.message,
+      });
+    }
+  });
+
+  // START / STOP CONTINUOUS LOCATION TRACKING
+
+  let locationTrackingInterval = null;
+
+  socket.on("delivery:start-tracking", async (data) => {
+    try {
+      if (userRole !== "delivery") {
+        socket.emit("error", {
+          message: "Only delivery partners can start tracking",
+        });
+        return;
+      }
+
+      const { orderId, updateInterval = 5000 } = data; // Default: 5 seconds
+
+      if (!orderId) {
+        socket.emit("error", { message: `Order Id is required` });
+        return;
+      }
+
+      // Verify partner is assigned to this order
+      const order = await Order.findById(orderId);
+
+      if (!order) {
+        socket.emit("error", {
+          message: "Order not found",
+        });
+      }
+
+      if (order.deliveryPartner?.toString() !== userId) {
+        socket.emit("error", { message: "You are not assigned to this order" });
+        return;
+      }
+
+      // Store tracking info on socket
+      socket.trackingOrderId = orderId;
+      socket.trackingInterval = updateInterval;
+
+      socket.emit("delivery: tracking-started", {
+        orderId,
+        updateInterval,
+        message: "Continuous location tracking started",
+        timestamp: new Date(),
+      });
+
+      console.log(`${user.name} started tracking for order ${orderId}`);
+    } catch (error) {
+      console.error(`Start tracking error: `, error);
+      socket.emit("error", {
+        message: "Failed to start tracking",
+        error: error.message,
+      });
+    }
+  });
+
+  socket.on("delivery:stop-tracking", () => {
+    if (socket.trackingOrderId) {
+      const orderId = socket.trackingOrderId;
+
+      socket.trackingOrderId = null;
+      socket.trackingInterval = null;
+
+      socket.emit("delivery:tracking-stopped", {
+        orderId,
+        message: "Continuous location tracking stopped",
+        timestamp: new Date(),
+      });
+
+      console.log(`${user.name} stopped tracking for order ${orderId}`);
+    }
+  });
+
+  // ORDER COMPLETION CONFIRMATION
+  socket.on("order:confirm-delivery", async (data) => {
+    try {
+      const { orderId, confirmationCode, signature } = data;
+
+      if (!orderId) {
+        socket.emit("error", { message: "Order ID is required" });
+        return;
+      }
+
+      // Find order
+      const order = await Order.findById(orderId);
+
+      if (!order) {
+        socket.emit("error", { message: "Order not found" });
+        return;
+      }
+
+      // Delivery partner confirming delivery
+      if (userRole === "delivery") {
+        // Check if order belongs to this partner
+        if (order.deliveryPartner?.toString() !== userId) {
+          socket.emit("error", {
+            message: "You are not assigned to this order",
+          });
+          return;
+        }
+
+        // Check if order is in correct status
+        if (order.status !== "on_the_way") {
+          socket.emit("error", {
+            message: `Order must be "on_the_way" to confirm delivery. Current status: ${order.status}`,
+          });
+          return;
+        }
+
+        // Update order to delivered
+        order.status = "delivered";
+        order.actualDeliveryTime = new Date();
+        order.paymentStatus = "completed";
+
+        if (confirmationCode) {
+          order.deliveryConfirmation = {
+            code: confirmationCode,
+            confirmedBy: userId,
+            confirmedAt: new Date(),
+          };
+        }
+
+        order.statusHistory.push({
+          status: "delivered",
+          timestamp: new Date(),
+          updatedBy: userId,
+          note: `Delivery confirmed by ${user.name}`,
+        });
+
+        await order.save();
+
+        // Update delivery partner statistics
+        const deliveryPartner = await DeliveryPartner.findOne({ user: userId });
+        if (deliveryPartner) {
+          await deliveryPartner.completeOrder(order.totalAmount);
+          await deliveryPartner.removeActiveOrder(orderId);
+        }
+
+        // Stop tracking if active
+        if (socket.trackingOrderId === orderId) {
+          socket.trackingOrderId = null;
+          socket.trackingInterval = null;
+        }
+
+        // Populate for response
+        await order.populate("customer", "name phone email");
+
+        const completionData = {
+          orderId,
+          status: "delivered",
+          actualDeliveryTime: order.actualDeliveryTime,
+          paymentStatus: order.paymentStatus,
+          timestamp: new Date(),
+        };
+
+        // Emit to delivery partner
+        socket.emit("order:delivery-confirmed", {
+          ...completionData,
+          message: "Delivery confirmed successfully",
+          order,
+        });
+
+        // Emit to customer
+        emitToUser(order.customer._id.toString(), "order:completed", {
+          ...completionData,
+          partnerName: user.name,
+          message: "Your order has been delivered!",
+        });
+
+        // Emit to order room
+        emitToRoom(`order:${orderId}`, "order:completed", completionData);
+
+        // Emit to admins
+        emitToRole("admin", "order:completed", {
+          ...completionData,
+          customerId: order.customer._id,
+          partnerId: userId,
+          partnerName: user.name,
+          totalAmount: order.totalAmount,
+        });
+
+        console.log(`Order ${orderId} completed by ${user.name}`);
+      }
+      // Customer confirming receipt
+      else if (userRole === "customer") {
+        // Check if order belongs to this customer
+        if (order.customer?.toString() !== userId) {
+          socket.emit("error", { message: "This is not your order" });
+          return;
+        }
+
+        // Check if order is delivered
+        if (order.status !== "delivered") {
+          socket.emit("error", {
+            message: "Order must be delivered before confirmation",
+          });
+          return;
+        }
+
+        // Add customer confirmation
+        if (!order.deliveryConfirmation) {
+          order.deliveryConfirmation = {};
+        }
+
+        order.deliveryConfirmation.customerConfirmed = true;
+        order.deliveryConfirmation.customerConfirmedAt = new Date();
+
+        if (signature) {
+          order.deliveryConfirmation.customerSignature = signature;
+        }
+
+        await order.save();
+
+        socket.emit("order:receipt-confirmed", {
+          orderId,
+          message: "Receipt confirmed",
+          timestamp: new Date(),
+        });
+
+        // Notify delivery partner
+        if (order.deliveryPartner) {
+          emitToUser(
+            order.deliveryPartner.toString(),
+            "order:customer-confirmed",
+            {
+              orderId,
+              customerName: user.name,
+              message: "Customer confirmed receipt",
+              timestamp: new Date(),
+            },
+          );
+        }
+
+        console.log(`✅ Order ${orderId} confirmed by customer ${user.name}`);
+      }
+    } catch (error) {
+      console.error("Confirm delivery error:", error);
+      socket.emit("error", {
+        message: "Failed to confirm delivery",
         error: error.message,
       });
     }
@@ -642,6 +915,39 @@ export const emitOrderCancelled = (order, cancelledBy, reason) => {
   emitToRole("admin", "order:cancelled", eventData);
 
   console.log(`Order cancelled event emitted: ${order._id}`);
+};
+
+// Emit order completed Event
+export const emitOrderCompleted = (order) => {
+  const eventData = {
+    orderId: order._id.toString(),
+    status: "delivered",
+    actualDeliveryTime: order.actualDeliveryTime,
+    paymentStatus: order.paymentStatus,
+    timestamp: new Date(),
+  };
+
+  // Emit to customer
+  if (order.customer) {
+    emitToUser(order.customer.toString(), "order:completed", eventData);
+  }
+
+  // Emit to delivery partner
+  if (order.deliveryPartner) {
+    emitToUser(order.deliveryPartner.toString(), "order:completed", eventData);
+  }
+
+  // Emit to order room
+  emitToRoom(`order:${order._id}`, "order:completed", eventData);
+
+  // Emit to admins
+  emitToRole("admin", "order:completed", {
+    ...eventData,
+    customerId: order.customer,
+    partnerId: order.deliveryPartner,
+  });
+
+  console.log(`Order completed event emitted: ${order._id}`);
 };
 
 export default {
