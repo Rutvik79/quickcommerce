@@ -3,6 +3,28 @@ import { Product } from "../models/Product.js";
 import { Order } from "../models/Order.js";
 import mongoose from "mongoose";
 import { User } from "../models/User.js";
+import { getOnlineUsers } from "../socket/socketServer.js";
+
+// @desc    Get online users count
+// @route   GET /api/admin/online-users
+// @access  Private (Admin only)
+export const getOnlineUsersCount = async (req, res) => {
+  try {
+    const onlineUsers = getOnlineUsers();
+
+    res.status(200).json({
+      success: true,
+      onlineUsers,
+    });
+  } catch (error) {
+    console.error("Get Online Users Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching online users",
+      error: error.message,
+    });
+  }
+};
 
 // @desc    Get all orders (system-wide)
 // @route   GET /api/admin/orders

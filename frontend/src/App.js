@@ -68,13 +68,7 @@ function App() {
                 path="/delivery/*"
                 element={
                   <ProtectedRoute roles={["delivery"]}>
-                    <Routes>
-                      <Route path="dashboard" element={<DeliveryDashboard />} />
-                      <Route
-                        path="*"
-                        element={<Navigate to="/delivery/dashboard" replace />}
-                      />
-                    </Routes>
+                    <DeliveryDashboard />
                   </ProtectedRoute>
                 }
               />
@@ -84,13 +78,7 @@ function App() {
                 path="/admin/*"
                 element={
                   <ProtectedRoute roles={["admin"]}>
-                    <Routes>
-                      <Route path="dashboard" element={<AdminDashboard />} />
-                      <Route
-                        path="*"
-                        element={<Navigate to="/admin/dashboard" replace />}
-                      />
-                    </Routes>
+                    <AdminDashboard />
                   </ProtectedRoute>
                 }
               />

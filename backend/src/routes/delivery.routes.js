@@ -6,6 +6,7 @@ import {
   getActiveOrders,
   getAllMyOrders,
   getAvailableOrders,
+  getDeliveryStatistics,
   getProfile,
   updateAvailability,
   updateLocation,
@@ -43,5 +44,8 @@ router.patch("/availability", deliveryAuth, updateAvailability);
 
 // Get delivery partner profile and statistics
 router.get("/profile", deliveryAuth, getProfile);
+
+// Get delivery partner statistics
+router.get("/statistics", deliveryAuth, getDeliveryStatistics);
 
 export default router;

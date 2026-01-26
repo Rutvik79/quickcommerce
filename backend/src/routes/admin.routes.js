@@ -7,6 +7,7 @@ import {
   getAllPartners,
   getAllUsers,
   getDashboard,
+  getOnlineUsersCount,
   getOrderById,
   getPartnerById,
   getStatistics,
@@ -25,6 +26,9 @@ router.get("/dashboard", adminAuth, getDashboard);
 
 // Get system statistics
 router.get("/statistics", adminAuth, getStatistics);
+
+// Online User count
+router.get("/online-users", adminAuth, getOnlineUsersCount);
 
 // ORDER MANAGEMENT
 

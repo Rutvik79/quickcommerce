@@ -4,6 +4,28 @@ import { User } from "../models/User.js";
 
 let io;
 
+// Track online users
+const onlineUsers = new Map(); // userId -> {socketId, role, name, connectAt}
+
+// Get online users count
+export const getOnlineUsers = () => {
+  const users = {
+    customers: 0,
+    delivery: 0,
+    admin: 0,
+    total: 0,
+  };
+
+  onlineUsers.forEach((user) => {
+    if (user.role === "customer") users.customers++;
+    else if (user.role === "delivery") users.delivery++;
+    else if (user.role === "admin") users.admin++;
+    users.total++;
+  });
+
+  return users;
+};
+
 // Initialize Socket.io server
 export const initializeSocketServer = (httpServer) => {
   io = new Server(httpServer, {
@@ -66,6 +88,14 @@ export const initializeSocketServer = (httpServer) => {
       `User connected: ${socket.user.name} (${socket.user.role}) - Socket ID: ${socket.id}`,
     );
 
+    // Track online user
+    onlineUsers.set(socket.userId, {
+      socketId: socket.id,
+      role: socket.userRole,
+      name: socket.user.name,
+      connectedAt: new Date(),
+    });
+
     // Join user-specific room
     socket.join(`user:${socket.userId}`);
 
@@ -95,6 +125,9 @@ export const initializeSocketServer = (httpServer) => {
     // Handle disconnection
     socket.on("disconnect", (reason) => {
       console.log(`User disconnected: ${socket.user.name} - Reason: ${reason}`);
+
+      // Remove from online users
+      onlineUsers.delete(socket.userId);
 
       // Broadcast user offline status to admins
       io.to("role:admin").emit("user:offline", {

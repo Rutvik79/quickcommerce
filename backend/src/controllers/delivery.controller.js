@@ -596,3 +596,47 @@ export const getProfile = async (req, res) => {
     });
   }
 };
+
+// @desc    Get delivery partner statistics
+// @route   GET /api/delivery/statistics
+// @access  Private (Delivery Partner only)
+export const getDeliveryStatistics = async (req, res) => {
+  try {
+    const deliveryPartner = await DeliveryPartner.findOne(
+      { user: req.user._id },
+      {
+        "statistics.totalEarnings": 1,
+        "statistics.completedOrders": 1,
+        activeOrders: 1,
+        isAvailable: 1,
+      },
+    );
+
+    if (!deliveryPartner) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner profile not found",
+      });
+    }
+
+    const activeOrdersCount = deliveryPartner.activeOrders.length;
+
+    res.status(200).json({
+      success: true,
+      statistics: {
+        totalEarnings: deliveryPartner.statistics.totalEarnings,
+        completedOrders: deliveryPartner.statistics.completedOrders,
+        activeOrders: activeOrdersCount,
+        canAcceptOrders: activeOrdersCount < 3,
+        isAvailable: deliveryPartner.isAvailable,
+      },
+    });
+  } catch (error) {
+    console.error("Get Delivery Statistics Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching delivery statistics",
+      error: error.message,
+    });
+  }
+};
