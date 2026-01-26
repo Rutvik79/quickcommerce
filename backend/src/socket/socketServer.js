@@ -72,7 +72,6 @@ export const initializeSocketServer = (httpServer) => {
     // Join role-specific room
     socket.join(`role:${socket.userRole}`);
 
-    console.log("6");
     // Send welcome message
     socket.emit("connected", {
       message: "Connected to QuickCommerce real-time server",
