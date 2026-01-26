@@ -1,6 +1,7 @@
 import { Order } from "../models/Order.js";
 import { DeliveryPartner } from "../models/DeliveryPartner.js";
 import { emitToUser, emitToRole, emitToRoom } from "./socketServer.js";
+import mongoose from "mongoose";
 
 export const registerSocketHandlers = (io, socket) => {
   const user = socket.user;
@@ -10,6 +11,7 @@ export const registerSocketHandlers = (io, socket) => {
   console.log(`Registering event handlers for ${user.name} (${userRole})`);
 
   //   ROOM MANAGEMENT
+
   // Join order-specific room
   socket.on("order:join", (data) => {
     const { orderId } = data;
@@ -22,7 +24,7 @@ export const registerSocketHandlers = (io, socket) => {
     const roomName = `order:${orderId}`;
     socket.join(roomName);
 
-    console.log(`📦 ${user.name} joined order room: ${roomName}`);
+    console.log(` ${user.name} joined order room: ${roomName}`);
 
     socket.emit("order:joined", {
       orderId,
@@ -53,7 +55,7 @@ export const registerSocketHandlers = (io, socket) => {
     const roomName = `order:${orderId}`;
     socket.leave(roomName);
 
-    console.log(`📦 ${user.name} left order room: ${roomName}`);
+    console.log(`${user.name} left order room: ${roomName}`);
 
     socket.emit("order:left", {
       orderId,
@@ -70,6 +72,170 @@ export const registerSocketHandlers = (io, socket) => {
       orderId,
       timestamp: new Date(),
     });
+  });
+
+  // REAL TIME ORDER ACCEPTANCE (with locking)
+  socket.on("order:accept", async (data) => {
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { orderId } = data;
+
+      if (!orderId) {
+        socket.emit("error", { message: "Order ID is required" });
+        return;
+      }
+
+      // Only delivery partners can accept orders
+      if (userRole !== "delivery") {
+        socket.emit("error", {
+          message: "Only delivery partners can accept orders",
+        });
+        return;
+      }
+
+      // Get delivery partner profile
+      const deliveryPartner = await DeliveryPartner.findOne({
+        user: userId,
+      }).session(session);
+
+      if (!deliveryPartner) {
+        await session.abortTransaction();
+        socket.emit("error", { message: "Delivery partner profile not found" });
+        return;
+      }
+
+      // Check if partner is verified and can accept orders
+      if (!deliveryPartner.isVerified) {
+        await session.abortTransaction();
+        socket.emit("error", { message: "Your account is not verified yet" });
+        return;
+      }
+
+      if (!deliveryPartner.canAcceptOrders) {
+        await session.abortTransaction();
+        socket.emit("error", {
+          message: "You have reached the maximum number of active orders (3)",
+        });
+        return;
+      }
+
+      // Find and lock the order
+      const order = await Order.findById(orderId).session(session);
+
+      if (!order) {
+        await session.abortTransaction();
+        socket.emit("error", { message: "Order not found" });
+        return;
+      }
+
+      // CRITICAL: Check if order is still available (race condition protection)
+      if (order.status !== "pending") {
+        await session.abortTransaction();
+        socket.emit("order:accept-failed", {
+          orderId,
+          reason: "already-accepted",
+          message: `Order is no longer available. Current status: ${order.status}`,
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      if (order.deliveryPartner) {
+        await session.abortTransaction();
+        socket.emit("order:accept-failed", {
+          orderId,
+          reason: "already-assigned",
+          message:
+            "Order has already been accepted by another delivery partner",
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      // Assign order to delivery partner
+      order.deliveryPartner = userId;
+      order.status = "accepted";
+
+      // Add status history
+      order.statusHistory.push({
+        status: "accepted",
+        timestamp: new Date(),
+        updatedBy: userId,
+        note: `Order accepted by ${user.name}`,
+      });
+
+      await order.save({ session });
+
+      // Add order to partner's active orders
+      await deliveryPartner.addActiveOrder(orderId);
+
+      // Commit transaction
+      await session.commitTransaction();
+
+      // Populate order details
+      await order.populate("customer", "name phone email");
+      await order.populate("items.product", "name price imageUrl");
+
+      console.log(`Order ${orderId} accepted by ${user.name}`);
+
+      // Emit success to the delivery partner who accepted
+      socket.emit("order:accepted-success", {
+        orderId,
+        order,
+        message: "Order accepted successfully",
+        timestamp: new Date(),
+      });
+
+      // Emit to customer that their order was accepted
+      emitToUser(order.customer._id.toString(), "order:accepted", {
+        orderId,
+        partnerId: userId,
+        partnerName: user.name,
+        status: "accepted",
+        estimatedDeliveryTime: order.estimatedDeliveryTime,
+        timestamp: new Date(),
+      });
+
+      // Emit to order room (anyone tracking this order)
+      emitToRoom(`order:${orderId}`, "order:accepted", {
+        orderId,
+        partnerId: userId,
+        partnerName: user.name,
+        status: "accepted",
+        timestamp: new Date(),
+      });
+
+      // Emit to admins
+      emitToRole("admin", "order:accepted", {
+        orderId,
+        customerId: order.customer._id,
+        partnerId: userId,
+        partnerName: user.name,
+        totalAmount: order.totalAmount,
+        timestamp: new Date(),
+      });
+
+      // Broadcast to other delivery partners that this order is no longer available
+      socket.to("role:delivery").emit("order:no-longer-available", {
+        orderId,
+        acceptedBy: user.name,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      // Rollback transaction on error
+      await session.abortTransaction();
+      console.error("Accept Order Error:", error);
+
+      socket.emit("error", {
+        message: "Failed to accept order",
+        error: error.message,
+      });
+    } finally {
+      session.endSession();
+    }
   });
 
   //   DELIVERY PARTNER LOCATION UPDATES
@@ -368,7 +534,7 @@ export const registerSocketHandlers = (io, socket) => {
   console.log(`Event handlers registered for ${user.name}`);
 };
 
-// Helper functions for emitting events from controllers
+// Helper functions (called from REST APIs)
 
 // Emit order created event
 export const emitOrderCreated = (order) => {

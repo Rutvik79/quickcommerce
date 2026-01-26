@@ -104,6 +104,7 @@ const main = async () => {
   const userName = args[1] || "Test User";
 
   try {
+    console.log("runnint test socket connection");
     await testSocketConnection(token, userName);
   } catch (error) {
     console.error("Test failed:", error);
@@ -112,8 +113,12 @@ const main = async () => {
 };
 
 // Run if called directly
+console.log(import.meta.url);
+console.log(`file://${process.argv[1]}`);
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  // this does not work in windows system because of the '/' and '\' difference
+  console.log("calling main function");
 }
+main();
 
 export { testSocketConnection };

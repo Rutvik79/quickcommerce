@@ -319,6 +319,14 @@
           addEvent("order:accepted", "Order accepted", data);
         });
 
+        socket.on("order:accepted-success", (data) => {
+          addEvent("order:accepted-success", "Order accept sucessfully", data);
+        });
+
+        socket.on("order:accept-failed", (data) => {
+          addEvent("order:accept-failed", "Order accept failed", data);
+        });
+
         socket.on("order:status-updated", (data) => {
           addEvent("order:status-updated", "Order status updated", data);
         });

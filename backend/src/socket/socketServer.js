@@ -19,6 +19,7 @@ export const initializeSocketServer = (httpServer) => {
   // Authentication middleware
   io.use(async (socket, next) => {
     try {
+      // console.log("1");
       const token =
         socket.handshake.auth.token ||
         socket.handshake.headers.authorization?.split(" ")[1];
@@ -27,6 +28,7 @@ export const initializeSocketServer = (httpServer) => {
         return next(new Error("Authentication error: No token provided"));
       }
 
+      // console.log("2");
       // Verify token
       const decoded = verifyToken(token);
 
@@ -43,11 +45,13 @@ export const initializeSocketServer = (httpServer) => {
         );
       }
 
+      // console.log("3");
       // Attach user to socket
       socket.user = user;
       socket.userId = user._id.toString();
       socket.userRole = user.role;
 
+      // console.log("4");
       next();
     } catch (error) {
       console.error("Socket authentication error:", error);
@@ -57,6 +61,7 @@ export const initializeSocketServer = (httpServer) => {
 
   // Connection event
   io.on("connection", (socket) => {
+    // console.log("5");
     console.log(
       `User connected: ${socket.user.name} (${socket.user.role}) - Socket ID: ${socket.id}`,
     );
@@ -67,6 +72,7 @@ export const initializeSocketServer = (httpServer) => {
     // Join role-specific room
     socket.join(`role:${socket.userRole}`);
 
+    console.log("6");
     // Send welcome message
     socket.emit("connected", {
       message: "Connected to QuickCommerce real-time server",
@@ -77,6 +83,7 @@ export const initializeSocketServer = (httpServer) => {
       timestamp: new Date(),
     });
 
+    // console.log("6");
     // Broadcast user online status to admins
     io.to("role:admin").emit("user:online", {
       userId: socket.userId,
@@ -85,6 +92,7 @@ export const initializeSocketServer = (httpServer) => {
       timestamp: new Date(),
     });
 
+    // console.log("7");
     // Handle disconnection
     socket.on("disconnect", (reason) => {
       console.log(`User disconnected: ${socket.user.name} - Reason: ${reason}`);
@@ -99,6 +107,7 @@ export const initializeSocketServer = (httpServer) => {
       });
     });
 
+    // console.log("8");
     // Handle errors
     socket.on("error", (error) => {
       console.error("Socket error:", error);
@@ -108,12 +117,14 @@ export const initializeSocketServer = (httpServer) => {
       });
     });
 
+    // console.log("9");
     // Import and register event handlers
     import("./socketHandlers.js").then(({ registerSocketHandlers }) => {
       registerSocketHandlers(io, socket);
     });
   });
 
+  // console.log("10");
   console.log("Socket.io server initialized");
   return io;
 };

@@ -1,5 +1,9 @@
 import { Product } from "../models/Product.js";
 import { Order } from "../models/Order.js";
+import {
+  emitOrderCancelled,
+  emitOrderCreated,
+} from "../socket/socketHandlers.js";
 import mongoose from "mongoose";
 
 // @desc    Get all products (with filtering, search, pagination)
@@ -211,6 +215,10 @@ export const placeOrder = async (req, res) => {
 
     // Populate product details
     await order.populate("items.product");
+    await order.populate("customer", "name phone email");
+
+    // EMIT REAL-TIME EVENT: Order created
+    emitOrderCreated(order);
 
     res.status(201).json({
       success: true,
@@ -368,6 +376,13 @@ export const cancelOrder = async (req, res) => {
     order.status = "cancelled";
     order.cancellationReason = reason || "Cancelled by customer";
     await order.save();
+
+    // EMIT REAL-TIME EVENT: Order Cancelled
+    emitOrderCancelled(
+      order,
+      req.user._id.toString(),
+      reason || "Cancelled by customer",
+    );
 
     res.status(200).json({
       success: true,

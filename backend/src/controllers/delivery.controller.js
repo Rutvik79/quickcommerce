@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { DeliveryPartner } from "../models/DeliveryPartner.js";
 import { Order } from "../models/Order.js";
+import { emitOrderStatusUpdate } from "../socket/socketHandlers.js";
 
 // @desc    Get all available (unassigned) orders
 // @route   GET /api/delivery/orders/available
@@ -303,6 +304,9 @@ export const updateOrderStatus = async (req, res) => {
     // Populate details
     await order.populate("customer", "name phone");
     await order.populate("deliveryPartner", "name phone");
+
+    // EMIT REAL-TIME EVENT: Order status updated
+    emitOrderStatusUpdate(order, status);
 
     res.status(200).json({
       success: true,
