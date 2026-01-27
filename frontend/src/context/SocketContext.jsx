@@ -20,7 +20,7 @@ export const useSocket = () => {
   return ctx;
 };
 
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost";
 
 export const SocketProvider = ({ children }) => {
   const { token, isAuthenticated } = useAuth();
@@ -39,7 +39,7 @@ export const SocketProvider = ({ children }) => {
     if (socketRef.current?.connected) return;
 
     console.log("🔌 Connecting to WebSocket...");
-
+    console.log("Socket URL", SOCKET_URL);
     const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket"],
