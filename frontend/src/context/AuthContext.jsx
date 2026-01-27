@@ -54,7 +54,12 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       const response = await axios.post("/api/auth/register", userData);
       const { token: newToken, user: newUser } = response.data;
-
+      // console.log(
+      //   "token from authcontext",
+      //   token,
+      //   "user from authcontext",
+      //   user,
+      // );
       setToken(newToken);
       setUser(newUser);
 

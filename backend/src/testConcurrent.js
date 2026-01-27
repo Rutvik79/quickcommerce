@@ -176,9 +176,9 @@ const main = async () => {
 
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  //   main(); //wont run on windows machine
+  main(); //wont run on windows machine
 }
 
-main();
+// main();
 
 export { testConcurrentAcceptance, runMultipleTests };

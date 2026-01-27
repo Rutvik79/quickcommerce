@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/seedProducts.js",
-    "verify-partners": "node src/verifyPartners.js"
+    "verify-partners": "node src/verifyPartners.js",
+    "seed:users": "node src/seedUsers.js"
   },
   "keywords": [],
   "author": "Rutvik",

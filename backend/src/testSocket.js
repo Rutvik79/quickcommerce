@@ -117,8 +117,8 @@ console.log(import.meta.url);
 console.log(`file://${process.argv[1]}`);
 if (import.meta.url === `file://${process.argv[1]}`) {
   // this does not work in windows system because of the '/' and '\' difference
-  console.log("calling main function");
+  main();
+  // console.log("calling main function");
 }
-main();
 
 export { testSocketConnection };

@@ -304,10 +304,10 @@ const main = async () => {
 
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  //   main(); // this wont run on window machine
+  main(); // this wont run on window machine
 }
 
-main();
+// main();
 
 export {
   testReconnection,

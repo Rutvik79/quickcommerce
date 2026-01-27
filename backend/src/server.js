@@ -11,6 +11,7 @@ import authRoutes from "./routes/auth.routes.js";
 import customerRoutes from "./routes/customer.routes.js";
 import deliveryRoutes from "./routes/delivery.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import healthRoutes from "./routes/health.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -38,43 +39,43 @@ app.get("/", (req, res) => {
     status: "running",
     timestamp: new Date().toISOString(),
   });
-});
+}); //async (req, res) => {
 
 // Health check endpoint
-app.get("/health", async (req, res) => {
-  const healthcheck = {
-    uptime: process.uptime(),
-    message: "OK",
-    timestamp: Date.now(),
-    environment: process.env.NODE_ENV || "development",
-    database: "connected",
-    version: "1.0.0",
-  };
+//   const healthcheck = {
+//     uptime: process.uptime(),
+//     message: "OK",
+//     timestamp: Date.now(),
+//     environment: process.env.NODE_ENV || "development",
+//     database: "connected",
+//     version: "1.0.0",
+//   };
 
-  try {
-    // Check database connection
-    if (mongoose.connection.readyState !== 1) {
-      healthcheck.database = "disconnected";
-      return res.status(503).json({
-        status: "UNHEALTHY",
-        ...healthcheck,
-      });
-    }
+//   try {
+//     // Check database connection
+//     if (mongoose.connection.readyState !== 1) {
+//       healthcheck.database = "disconnected";
+//       return res.status(503).json({
+//         status: "UNHEALTHY",
+//         ...healthcheck,
+//       });
+//     }
 
-    res.status(200).json({
-      status: "HEALTHY",
-      ...healthcheck,
-    });
-  } catch (error) {
-    healthcheck.message = error.message;
-    res.status(503).json({
-      status: "UNHEALTHY",
-      ...healthcheck,
-    });
-  }
-});
+//     res.status(200).json({
+//       status: "HEALTHY",
+//       ...healthcheck,
+//     });
+//   } catch (error) {
+//     healthcheck.message = error.message;
+//     res.status(503).json({
+//       status: "UNHEALTHY",
+//       ...healthcheck,
+//     });
+//   }
+// }
 
 // API Routes
+app.get("/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/delivery", deliveryRoutes);
