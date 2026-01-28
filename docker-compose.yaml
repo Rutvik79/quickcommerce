@@ -1,87 +1,118 @@
-services: 
-# Mongo db database
-  mongodb:
+
+services:
+  mongo1:
     image: mongo:7.0
-    container_name: quickcommerce-mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-admin123}
-      MONGO_INITDB_DATABASE: quickcommerce
+    container_name: mongo1
+    hostname: mongo1
+    command: mongod --replSet my-mongo-set --bind_ip_all
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
-      - mongodb_config:/data/configdb
+      - mongo1-data:/data/db
     networks:
       - quickcommerce-network
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5
-      
-  # backend API
+      start_period: 20s
+
+  mongo2:
+    image: mongo:7.0
+    container_name: mongo2
+    hostname: mongo2
+    command: mongod --replSet my-mongo-set --bind_ip_all --port 27018
+    ports:
+      - "27018:27018"
+    volumes:
+      - mongo2-data:/data/db
+    networks:
+      - quickcommerce-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mongoinit:
+    image: mongo:7.0
+    container_name: mongo-init
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+    networks:
+      - quickcommerce-network
+    restart: "no"
+    command: >
+      mongosh --host mongo1:27017 --eval '
+        rs.initiate({
+          _id: "my-mongo-set",
+          members: [
+            { _id: 0, host: "mongo1:27017" },
+            { _id: 1, host: "mongo2:27018" }
+          ]
+        });
+      '
+
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: quickcommerce-backend
     restart: unless-stopped
-    ports: 
+    ports:
       - "5000:5000"
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@mongodb:27017/quickcommerce?authSource=admin
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      FRONTEND_URL: http://localhost:3000
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      MONGO_URI: mongodb://mongo1:27017,mongo2:27018/quickcommerce?replicaSet=my-mongo-set
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:3000
     depends_on:
-      mongodb: 
-        condition: service_healthy
+      mongoinit:
+        condition: service_completed_successfully
     networks:
       - quickcommerce-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
       start_period: 40s
 
-
-  # frontend react app
   frontend:
-    build: 
+    build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: quickcommerce-frontend
     restart: unless-stopped
-    ports: 
+    ports:
       - "80:80"
     environment:
       REACT_APP_API_URL: http://localhost:5000
       REACT_APP_SOCKET_URL: http://localhost:5000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - quickcommerce-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
-      
-# networks:
+
+volumes:
+  mongo1-data:
+    driver: local
+  mongo2-data:
+    driver: local
+  
 networks:
   quickcommerce-network:
     driver: bridge
-
-# volumes
-volumes:
-  mongodb_data:
-    driver: local
-  mongodb_config:
-    driver: local

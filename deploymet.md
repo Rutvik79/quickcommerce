@@ -1,3 +1,9 @@
+<!-- Run this for replica set on local machine -->
+>mongod --replSet rs0 --dbpath d:\data\db
+<!-- make sure the directory d:\data\db is present on your system -->
+
+
+<!-- for deplloyment on vm on cloud host -->
 sudo yum update -y
 sudo yum install git -y
 
