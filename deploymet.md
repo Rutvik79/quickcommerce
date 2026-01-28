@@ -198,6 +198,11 @@ docker compose version
 
 <!--  -->
 this might be the whole issue about socket not connecting properly
+ANSWER: yes it was a frontend along with a backend issue, 
+        - i had to configure cors for backend server to accept 
+          connection from everywhere
+        - also i had to change the socket url in socketcontext file to 
+          the ip of the server to make a proper websocket connection
 .env from frontend
 
 # API Configuration
@@ -208,6 +213,7 @@ REACT_APP_SOCKET_URL=http://localhost:5000
 # Optional: If you want to use different ports or production URLs
 # REACT_APP_API_URL=https://api.yourapp.com
 # REACT_APP_SOCKET_URL=https://api.yourapp.com
+
 
 
 

@@ -1,11 +1,8 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import { User } from "./models/User.js";
+import axios from "axios";
 
-dotenv.config();
+const API_URL = "http://localhost:5000/api/auth/register";
 
 const users = [
-  // Admin
   {
     email: "admin@test.com",
     password: "password123",
@@ -13,8 +10,6 @@ const users = [
     phone: "9999999998",
     role: "admin",
   },
-
-  // Customer
   {
     email: "customer@test.com",
     password: "password123",
@@ -22,8 +17,6 @@ const users = [
     phone: "9999999997",
     role: "customer",
   },
-
-  // Delivery Partner
   {
     email: "delivery@test.com",
     password: "password123",
@@ -36,32 +29,24 @@ const users = [
   },
 ];
 
-const seedUsers = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ Connected to MongoDB");
-
-    for (const userData of users) {
-      const existing = await User.findOne({ email: userData.email });
-
-      if (existing) {
-        console.log(`⚠️  User already exists: ${userData.email}`);
-        continue;
+async function seed() {
+  for (const user of users) {
+    try {
+      const res = await axios.post(API_URL, user);
+      console.log(`✅ Seeded: ${user.email}`);
+    } catch (err) {
+      if (err.response?.status === 409) {
+        console.log(`⚠️ Already exists: ${user.email}`);
+      } else {
+        console.error(
+          `❌ Failed: ${user.email}`,
+          err.response?.data || err.message,
+        );
       }
-
-      const user = new User(userData);
-      await user.save();
-
-      console.log(`✅ Created ${user.role}: ${user.email}`);
     }
-
-    console.log("\n🎉 User seeding completed");
-  } catch (error) {
-    console.error("❌ Error seeding users:", error);
-  } finally {
-    await mongoose.connection.close();
-    process.exit(0);
   }
-};
 
-seedUsers();
+  process.exit(0);
+}
+
+seed();
