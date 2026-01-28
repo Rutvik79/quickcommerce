@@ -19,7 +19,7 @@ export const useSocket = () => {
   }
   return ctx;
 };
-
+// Change url here to the ip of the instance
 const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
 
 export const SocketProvider = ({ children }) => {
@@ -38,7 +38,14 @@ export const SocketProvider = ({ children }) => {
     // Prevent duplicate connections
     if (socketRef.current?.connected) return;
 
+    console.log(
+      "Change url to the ip of the ec2 instance to establish socket connection to the server",
+    );
     console.log("🔌 Connecting to WebSocket...");
+    console.log(
+      "process.env.REACT_APP_SOCKET_URL",
+      process.env.REACT_APP_SOCKET_URL,
+    );
     console.log("Socket URL", SOCKET_URL);
     const socket = io(SOCKET_URL, {
       auth: { token },
