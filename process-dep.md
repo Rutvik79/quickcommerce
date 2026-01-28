@@ -52,8 +52,5 @@ docker exec -it quickcommerce-backend npm run seed
 docker exec -it quickcommerce-backend npm run seed:users
 
 docker exec -it quickcommerce-backend npm run verify parnters
-
-
-
 <!-- Step 8 -->
 # That does it !!!

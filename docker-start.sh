@@ -96,10 +96,21 @@ fi
 
 # Seed users
 echo "👤 Seeding demo users..."
-docker-compose exec -T backend npm run seed:users || true
+# docker-compose exec -T backend npm run seed:users || true
+
+if docker-compose exec -T backend npm run seed:users; then
+    echo "✅ User Collection seeded successfully"
+else
+    echo "⚠️  User Collection seeding failed (it may already be seeded)"
+fi
 
 echo "Verifying Partners..."
-docker-compose exec -T backend npm run verify-partners || true
+if docker-compose exec -T backend npm run verify-partners; then
+    echo "✅ Partners verified successfully"
+else
+    echo "⚠️  Partners verification failed (it may already be seeded)"
+fi
+# docker-compose exec -T backend npm run verify-partners || true
 
 echo ""
 echo "=============================="
