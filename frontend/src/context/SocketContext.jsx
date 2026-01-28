@@ -20,7 +20,7 @@ export const useSocket = () => {
   return ctx;
 };
 
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost";
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
 
 export const SocketProvider = ({ children }) => {
   const { token, isAuthenticated } = useAuth();
