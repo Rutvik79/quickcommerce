@@ -16,13 +16,13 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker compose &> /dev/null; then
     echo "❌ Docker Compose is not installed. Please install Docker Compose first."
     exit 1
 fi
 
 echo "✅ Docker found: $(docker --version)"
-echo "✅ Docker Compose found: $(docker-compose --version)"
+echo "✅ Docker Compose found: $(docker compose --version)"
 echo ""
 
 # Check if .env exists
@@ -37,17 +37,17 @@ fi
 
 # Stop any running containers
 echo "🛑 Stopping any running containers..."
-docker-compose down -v 2>/dev/null || true
+docker compose down -v 2>/dev/null || true
 echo ""
 
 # Build images
 echo "🏗️  Building Docker images..."
-docker-compose build
+docker compose build
 echo ""
 
 # Start services
 echo "🚀 Starting services..."
-docker-compose up -d
+docker compose up -d
 echo ""
 
 # Wait for services to be healthy
@@ -57,7 +57,7 @@ sleep 5
 # Check service status
 echo ""
 echo "📊 Service Status:"
-docker-compose ps
+docker compose ps
 echo ""
 
 # Check health
@@ -65,7 +65,7 @@ echo "🏥 Health Checks:"
 echo ""
 
 # Check MongoDB
-if docker-compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" --quiet > /dev/null 2>&1; then
+if docker compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" --quiet > /dev/null 2>&1; then
     echo "✅ MongoDB: Healthy"
 else
     echo "❌ MongoDB: Unhealthy"
@@ -88,7 +88,7 @@ fi
 # Seed database
 echo "🌱 Seeding database"
 
-if docker-compose exec -T backend npm run seed; then
+if docker compose exec -T backend npm run seed; then
     echo "✅ Database seeded successfully"
 else
     echo "⚠️  Database seeding failed (it may already be seeded)"
@@ -96,21 +96,21 @@ fi
 
 # Seed users
 echo "👤 Seeding demo users..."
-# docker-compose exec -T backend npm run seed:users || true
+# docker compose exec -T backend npm run seed:users || true
 
-if docker-compose exec -T backend npm run seed:users; then
+if docker compose exec -T backend npm run seed:users; then
     echo "✅ User Collection seeded successfully"
 else
     echo "⚠️  User Collection seeding failed (it may already be seeded)"
 fi
 
 echo "Verifying Partners..."
-if docker-compose exec -T backend npm run verify-partners; then
+if docker compose exec -T backend npm run verify-partners; then
     echo "✅ Partners verified successfully"
 else
     echo "⚠️  Partners verification failed (it may already be seeded)"
 fi
-# docker-compose exec -T backend npm run verify-partners || true
+# docker compose exec -T backend npm run verify-partners || true
 
 echo ""
 echo "=============================="
@@ -122,9 +122,9 @@ echo "🔌 Backend:   http://localhost:5000"
 echo "🗄️  MongoDB:   mongodb://localhost:27017"
 echo ""
 echo "📝 Useful commands:"
-echo "   View logs:        docker-compose logs -f"
-echo "   Stop services:    docker-compose down"
-echo "   Restart services: docker-compose restart"
+echo "   View logs:        docker compose logs -f"
+echo "   Stop services:    docker compose down"
+echo "   Restart services: docker compose restart"
 echo ""
 echo "👤 Demo accounts:"
 echo "   Customer:  customer@test.com / password123"
